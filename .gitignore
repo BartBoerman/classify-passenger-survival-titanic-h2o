@@ -2,6 +2,7 @@
 # Edit at https://www.gitignore.io/?templates=visualstudiocode
 
 ### VisualStudioCode ###
+.code-workspace
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
