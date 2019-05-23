@@ -6,7 +6,7 @@ import os as os
 import pandas as pd  # data wrangling
 import numpy as np
 from category_encoders import OneHotEncoder
-import h2o
+import h2o # currently supported in Python 3.6
 ###########################################################################
 # Get data                                                                #
 ###########################################################################
@@ -138,90 +138,46 @@ testData = testData.drop(columns='Survived')
 ###########################################################################
 # Start h2o cloud                                                         #
 ###########################################################################
-
-
 h2o.init()
-
 h2o.remove_all  # clean slate, in case cluster was already running
-
 # upload data to h2o cloud
-
 train = h2o.H2OFrame(trainData)
-
 test = h2o.H2OFrame(testData)
-
 # define target and feautures
-
 target = 'Survived'
-
 features = train.columns[:train.shape[1]-2]
-
 train[target] = train[target].asfactor() # for binary classification, response should be a factor (ordinal / category)
-
 # gbm
-
 from h2o.estimators.gbm import H2OGradientBoostingEstimator
-
 nFolds = 5
-
 sampleRatePerClass = [0.62, 1]
-
 gbm = H2OGradientBoostingEstimator(nfolds = nFolds, fold_assignment = "Modulo",keep_cross_validation_predictions = True,
-
                                    min_rows = 4, ntrees = 50, max_depth = 3, learn_rate = 0.01, balance_classes=True,
-
                                    stopping_metric = 'AUC', stopping_rounds = 3, stopping_tolerance = 1e-4, score_tree_interval = 10, seed = 333)
-
 gbm.train(x = features, y = target, training_frame = train)
-
-# gbm.confusion_matrix()
-
+#gbm.confusion_matrix()
 # gbm.varimp_plot()
-
 # gbm.cross_validation_metrics_summary()
-
 gbm.model_performance().auc()
-
 # random forest
-
 from h2o.estimators.random_forest import H2ORandomForestEstimator
-
 rf = H2ORandomForestEstimator(nfolds = nFolds, fold_assignment = "Modulo",keep_cross_validation_predictions = True,
-
                                    min_rows = 4, ntrees = 100, max_depth = 6, balance_classes=True,
-
                                    stopping_metric = 'AUC', stopping_rounds = 3, stopping_tolerance = 1e-4, score_tree_interval = 10, seed = 333)
-
 rf.train(x = features, y = target, training_frame = train)
-
 rf.model_performance().auc()
-
 # stacked ensemble
-
 from h2o.estimators.stackedensemble import H2OStackedEnsembleEstimator
-
 # metaLearnerParams = {'balance_classes': 'True'}
-
 ensemble = H2OStackedEnsembleEstimator(base_models=[gbm, rf],
-
                                        metalearner_algorithm = 'glm', # metalearner_params = metaLearnerParams,
-
                                        seed = 333)
-
 ensemble.train(x = features, y = target, training_frame = train)
-
 ensemble.model_performance().auc()
-
 # predict
-
 finalPrediction = ensemble.predict(test[:-1])
-
 # submit
-
 submission = test.concat(finalPrediction,axis=1)[['PassengerId','predict']].as_data_frame(use_pandas=True)
-
 submission.rename(columns={'predict': 'Survived'}, inplace=True)
-
 submission.to_csv('submission.csv', index = False)
-
 h2o.cluster().shutdown()
